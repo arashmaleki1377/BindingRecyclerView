@@ -4,6 +4,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.IdRes;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.databinding.DataBindingUtil;
@@ -12,12 +13,18 @@ import androidx.recyclerview.widget.RecyclerView;
 
 
 import com.arashmaleki.bindingrecycleradapter.animations.ItemAnimation;
+import com.arashmaleki.bindingrecycleradapter.interfaces.BindViewHolderListener;
+import com.arashmaleki.bindingrecycleradapter.interfaces.OnItemClickListener;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
 public class BindingRecyclerAdapter<Binding extends ViewDataBinding, Model> extends RecyclerView.Adapter<MyViewHolder<Binding>> {
+
+    private static final int VIEW_TYPE_MAIN = 1;
+    private static final int VIEW_TYPE_EMPTY = 2;
 
     private final List<Model> items = new ArrayList<>();
     private List<Integer> onClickIds;
@@ -29,11 +36,12 @@ public class BindingRecyclerAdapter<Binding extends ViewDataBinding, Model> exte
     private final int variableId;
     private int animationType = ItemAnimation.BOTTOM_UP;
     private boolean isSubmitList = false;
-    private static final int VIEW_TYPE_MAIN = 1;
-    private static final int VIEW_TYPE_EMPTY = 2;
+    private int lastPosition = -1;
+    private boolean on_attach = true;
     private boolean isShowEmptyView = false;
     private boolean isEndlessScroll = false;
 
+    //region constructors
     public BindingRecyclerAdapter(int layout, int variableId) {
         this.layout = layout;
         this.variableId = variableId;
@@ -57,9 +65,15 @@ public class BindingRecyclerAdapter<Binding extends ViewDataBinding, Model> exte
         this.animationType = animationType;
         this.isShowEmptyView = isShowEmptyView;
     }
+    //endregion
 
-    public void setOnItemClickListener(List<Integer> onClickIds, final OnItemClickListener<Binding, Model> mItemClickListener) {
-        this.mOnItemClickListener = mItemClickListener;
+    //region getter and setter
+    public void setOnItemClickListener(@IdRes int id, final OnItemClickListener<Binding, Model> itemClickListener) {
+        setOnItemClickListener(Collections.singletonList(id), itemClickListener);
+    }
+
+    public void setOnItemClickListener(List<Integer> onClickIds, final OnItemClickListener<Binding, Model> itemClickListener) {
+        this.mOnItemClickListener = itemClickListener;
         this.onClickIds = onClickIds;
     }
 
@@ -75,11 +89,17 @@ public class BindingRecyclerAdapter<Binding extends ViewDataBinding, Model> exte
         this.animationType = animationType;
     }
 
-
     public void setSubmitList(boolean submitList) {
         isSubmitList = submitList;
     }
 
+    public List<Model> getList() {
+        return items;
+    }
+
+    //endregion
+
+    //region list operation
     public void addItems(List<Model> items) {
         final int size = this.items.size() + 1;
         this.items.addAll(items);
@@ -88,40 +108,39 @@ public class BindingRecyclerAdapter<Binding extends ViewDataBinding, Model> exte
     }
 
     public void addItem(Model item) {
-        this.items.add(item);
-        notifyDataSetChanged();
+        addItem(item, items.size());
+    }
+
+    public void addItem(Model item, int position) {
+        items.add(item);
+        notifyItemInserted(position);
         isSubmitList = true;
     }
 
     public void setItems(List<Model> items) {
         removeAllItem();
-        this.items.addAll(items);
+        items.addAll(items);
         notifyDataSetChanged();
         isSubmitList = true;
     }
 
     public void removeItem(Model item) {
-        this.items.remove(item);
+        items.remove(item);
         notifyDataSetChanged();
     }
 
     public void removeItem(int position) {
-        this.items.remove(position);
+        items.remove(position);
         notifyItemRemoved(position);
     }
 
     public void removeAllItem() {
-        if (items.isEmpty())
-            return;
-        this.items.clear();
+        items.clear();
         notifyDataSetChanged();
     }
+    //endregion
 
-    public List<Model> getList() {
-        return items;
-    }
-
-
+    //region overrides
     @NonNull
     @Override
     public MyViewHolder<Binding> onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -147,17 +166,8 @@ public class BindingRecyclerAdapter<Binding extends ViewDataBinding, Model> exte
 
         setAnimation(holder.itemView, position);
 
-        setOnItemClickListener(holder.binding.getRoot(), (Binding) holder.binding, position);
+        handleOnItemClickListener(holder.binding.getRoot(), (Binding) holder.binding, position);
 
-    }
-
-    private void setOnItemClickListener(View view, Binding viewDataBinding, int position) {
-        if (onClickIds == null || mOnItemClickListener == null)
-            return;
-        for (int i : onClickIds) {
-            if (view.findViewById(i) != null)
-                view.findViewById(i).setOnClickListener(v -> mOnItemClickListener.onItemClick(v, viewDataBinding, position, items.get(position)));
-        }
     }
 
     @Override
@@ -192,28 +202,21 @@ public class BindingRecyclerAdapter<Binding extends ViewDataBinding, Model> exte
         });
         super.onAttachedToRecyclerView(recyclerView);
     }
+    //endregion
 
-    private int lastPosition = -1;
-    private boolean on_attach = true;
+    private void handleOnItemClickListener(View view, Binding viewDataBinding, int position) {
+        if (onClickIds == null || mOnItemClickListener == null)
+            return;
+        for (int i : onClickIds) {
+            if (view.findViewById(i) != null)
+                view.findViewById(i).setOnClickListener(v -> mOnItemClickListener.onItemClick(v, viewDataBinding, position, items.get(position)));
+        }
+    }
 
     private void setAnimation(View view, int position) {
         if (position > lastPosition) {
             ItemAnimation.animate(view, on_attach ? position : -1, animationType);
             lastPosition = position;
-        }
-    }
-
-
-    public interface BindViewHolderListener<Binding extends ViewDataBinding, Model> {
-        void OnBindView(View view, Binding binding, Model item, int position);
-    }
-
-
-    public interface OnItemClickListener<Binding, Model> {
-
-        void onItemClick(View view, Binding binding, int position, Model model);
-
-        default void onItemLongClick(View view, int position, Model model) {
         }
     }
 
