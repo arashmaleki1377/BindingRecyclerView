@@ -9,3 +9,5 @@ dependencyResolutionManagement {
 rootProject.name = "SingletonRecyclerViewAdapter"
 include ':app'
 include ':BindingRecyclerAdapter'
+include ':Library'
+
