@@ -119,7 +119,7 @@ public class BindingRecyclerAdapter<Binding extends ViewDataBinding, Model> exte
 
     public void setItems(List<Model> items) {
         removeAllItem();
-        items.addAll(items);
+        this.items.addAll(items);
         notifyDataSetChanged();
         isSubmitList = true;
     }
